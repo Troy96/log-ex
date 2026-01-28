@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Download, Trash2, Moon, Sun, Monitor } from 'lucide-react';
+import Link from 'next/link';
+import { Download, Trash2, Moon, Sun, Monitor, RefreshCw, Cloud, CloudOff, User, LogOut } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -16,16 +17,18 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { usePreferences, useExpenses, useCategories } from '@/hooks/useDatabase';
+import { useAuthContext } from '@/components/auth-provider';
 import { exportAllData, clearAllData } from '@/lib/db';
 import { Currency, DateFormat, Theme } from '@/types';
 import { CURRENCIES, formatCurrency } from '@/config/currencies';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 
 export default function SettingsPage() {
   const { preferences, update: updatePreferences, isLoading } = usePreferences();
   const { expenses } = useExpenses();
   const { categories } = useCategories();
   const { setTheme, theme } = useTheme();
+  const { user, isAuthenticated, isOnline, sync, triggerSync, signOut } = useAuthContext();
   const [isExporting, setIsExporting] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
 
@@ -146,11 +149,113 @@ export default function SettingsPage() {
     );
   }
 
+  const handleManualSync = async () => {
+    try {
+      await triggerSync();
+      toast.success('Sync completed');
+    } catch {
+      toast.error('Sync failed');
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-2xl">
       <p className="text-muted-foreground">
         Customize your preferences and manage your data
       </p>
+
+      {/* Account */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Account</CardTitle>
+          <CardDescription>
+            {isAuthenticated
+              ? 'Manage your account and sync settings'
+              : 'Sign in to sync your data across devices'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isAuthenticated ? (
+            <>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                  <User className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-medium">{user?.email}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {isOnline ? (
+                      <span className="flex items-center gap-1">
+                        <Cloud className="h-3 w-3 text-green-500" />
+                        Online
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        <CloudOff className="h-3 w-3 text-muted-foreground" />
+                        Offline
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Sync Status</p>
+                    <p className="text-sm text-muted-foreground">
+                      {sync.lastSyncAt
+                        ? `Last synced ${formatDistanceToNow(new Date(sync.lastSyncAt), { addSuffix: true })}`
+                        : 'Never synced'}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleManualSync}
+                    disabled={sync.isSyncing || !isOnline}
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${sync.isSyncing ? 'animate-spin' : ''}`} />
+                    {sync.isSyncing ? 'Syncing...' : 'Sync Now'}
+                  </Button>
+                </div>
+                {sync.pendingCount > 0 && (
+                  <p className="text-sm text-amber-600">
+                    {sync.pendingCount} pending {sync.pendingCount === 1 ? 'change' : 'changes'} to sync
+                  </p>
+                )}
+                {sync.error && (
+                  <p className="text-sm text-destructive">{sync.error}</p>
+                )}
+              </div>
+
+              <Separator />
+
+              <Button variant="outline" onClick={() => signOut()}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign out
+              </Button>
+            </>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Create an account or sign in to sync your expenses across all your devices.
+                Your data is stored locally and will remain available even when offline.
+              </p>
+              <div className="flex gap-3">
+                <Button asChild>
+                  <Link href="/signup">Create account</Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link href="/login">Sign in</Link>
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Preferences */}
       <Card>

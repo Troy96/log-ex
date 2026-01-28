@@ -3,12 +3,30 @@
 import { useTheme } from 'next-themes';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Moon, Sun, Menu, TrendingUp } from 'lucide-react';
+import {
+  Moon,
+  Sun,
+  Menu,
+  TrendingUp,
+  LayoutDashboard,
+  Receipt,
+  Upload,
+  BarChart3,
+  Tags,
+  Settings,
+  User,
+  LogOut,
+  RefreshCw,
+  Cloud,
+  CloudOff,
+  Loader2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -18,15 +36,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import {
-  LayoutDashboard,
-  Receipt,
-  Upload,
-  BarChart3,
-  Tags,
-  Settings,
-} from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuthContext } from '@/components/auth-provider';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -47,7 +58,7 @@ const pageTitles: Record<string, string> = {
 };
 
 function ThemeToggle() {
-  const { setTheme, theme } = useTheme();
+  const { setTheme } = useTheme();
 
   return (
     <DropdownMenu>
@@ -67,6 +78,89 @@ function ThemeToggle() {
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme('system')}>
           System
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function SyncStatus() {
+  const { isAuthenticated, isOnline, sync, triggerSync } = useAuthContext();
+
+  if (!isAuthenticated) return null;
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={() => triggerSync()}
+      disabled={sync.isSyncing || !isOnline}
+      title={
+        !isOnline
+          ? 'Offline'
+          : sync.isSyncing
+            ? 'Syncing...'
+            : sync.pendingCount > 0
+              ? `${sync.pendingCount} pending changes`
+              : 'Synced'
+      }
+    >
+      {!isOnline ? (
+        <CloudOff className="h-5 w-5 text-muted-foreground" />
+      ) : sync.isSyncing ? (
+        <Loader2 className="h-5 w-5 animate-spin" />
+      ) : sync.pendingCount > 0 ? (
+        <RefreshCw className="h-5 w-5 text-amber-500" />
+      ) : (
+        <Cloud className="h-5 w-5 text-green-500" />
+      )}
+      <span className="sr-only">Sync status</span>
+    </Button>
+  );
+}
+
+function UserMenu() {
+  const { user, isAuthenticated, isLoading, signOut } = useAuthContext();
+
+  if (isLoading) {
+    return (
+      <Button variant="ghost" size="icon" disabled>
+        <Loader2 className="h-5 w-5 animate-spin" />
+      </Button>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <Button variant="outline" size="sm" asChild>
+        <Link href="/login">Sign in</Link>
+      </Button>
+    );
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon">
+          <User className="h-5 w-5" />
+          <span className="sr-only">User menu</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <div className="px-2 py-1.5 text-sm">
+          <p className="font-medium">{user?.email}</p>
+        </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/settings">
+            <Settings className="mr-2 h-4 w-4" />
+            Settings
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => signOut()}>
+          <LogOut className="mr-2 h-4 w-4" />
+          Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -128,7 +222,9 @@ export function Header() {
       <MobileNav />
       <h1 className="text-lg font-semibold lg:text-xl">{title}</h1>
       <div className="ml-auto flex items-center gap-2">
+        <SyncStatus />
         <ThemeToggle />
+        <UserMenu />
       </div>
     </header>
   );

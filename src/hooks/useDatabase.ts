@@ -9,15 +9,18 @@ import {
   getExpensesByDateRange,
   addExpense,
   updateExpense,
-  deleteExpense,
+  softDeleteExpense,
   getAllCategories,
   getVisibleCategories,
   updateCategory,
   addCategory,
+  softDeleteCategory,
   getPreferences,
   updatePreferences,
   bulkAddExpenses,
+  getExpenseById,
 } from '@/lib/db';
+import { queueSyncAction } from '@/lib/sync';
 import { Expense, Category, UserPreferences, Currency } from '@/types';
 
 export function useInitDatabase() {
@@ -38,22 +41,34 @@ export function useExpenses() {
 
   const add = useCallback(
     async (expense: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) => {
-      return addExpense(expense);
+      const id = await addExpense(expense);
+      const created = await getExpenseById(id);
+      if (created) {
+        await queueSyncAction('expenses', 'create', id, { ...created });
+      }
+      return id;
     },
     []
   );
 
   const update = useCallback(async (id: string, updates: Partial<Expense>) => {
-    return updateExpense(id, updates);
+    await updateExpense(id, updates);
+    const updated = await getExpenseById(id);
+    if (updated) {
+      await queueSyncAction('expenses', 'update', id, { ...updated });
+    }
   }, []);
 
   const remove = useCallback(async (id: string) => {
-    return deleteExpense(id);
+    await softDeleteExpense(id);
+    await queueSyncAction('expenses', 'delete', id, { _deleted: true });
   }, []);
 
   const bulkAdd = useCallback(
     async (expensesList: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>[]) => {
-      return bulkAddExpenses(expensesList);
+      const count = await bulkAddExpenses(expensesList);
+      // Note: Bulk imports are queued individually when sync is triggered
+      return count;
     },
     []
   );
@@ -85,11 +100,17 @@ export function useCategories() {
   const visibleCategories = useLiveQuery(() => getVisibleCategories(), []);
 
   const update = useCallback(async (id: string, updates: Partial<Category>) => {
-    return updateCategory(id, updates);
-  }, []);
+    await updateCategory(id, updates);
+    const updated = categories?.find((c) => c.id === id);
+    if (updated) {
+      await queueSyncAction('categories', 'update', id, { ...updated, ...updates });
+    }
+  }, [categories]);
 
   const add = useCallback(async (category: Omit<Category, 'id'>) => {
-    return addCategory(category);
+    const id = await addCategory(category);
+    await queueSyncAction('categories', 'create', id, { ...category, id });
+    return id;
   }, []);
 
   const reorder = useCallback(
@@ -137,7 +158,8 @@ export function usePreferences() {
   const preferences = useLiveQuery(() => getPreferences(), []);
 
   const update = useCallback(async (updates: Partial<UserPreferences>) => {
-    return updatePreferences(updates);
+    await updatePreferences(updates);
+    await queueSyncAction('preferences', 'update', 'user-preferences', updates);
   }, []);
 
   return {

@@ -3,6 +3,7 @@
 import { ThemeProvider as NextThemesProvider } from 'next-themes';
 import { useInitDatabase } from '@/hooks/useDatabase';
 import { Toaster } from '@/components/ui/sonner';
+import { AuthProvider } from '@/components/auth-provider';
 
 function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const { isReady, error } = useInitDatabase();
@@ -41,8 +42,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
       disableTransitionOnChange
     >
       <DatabaseProvider>
-        {children}
-        <Toaster />
+        <AuthProvider>
+          {children}
+          <Toaster />
+        </AuthProvider>
       </DatabaseProvider>
     </NextThemesProvider>
   );
