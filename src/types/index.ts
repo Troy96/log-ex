@@ -101,3 +101,58 @@ export interface InflationData {
     changePercent: number;
   }>;
 }
+
+// Sync types
+export type SyncStatus = 'pending' | 'synced' | 'error';
+
+export interface SyncMetadata {
+  syncedAt?: string;
+  syncStatus: SyncStatus;
+  serverId?: string;
+}
+
+export type SyncOperation = 'create' | 'update' | 'delete';
+export type SyncTable = 'expenses' | 'categories' | 'preferences';
+
+export interface SyncAction {
+  id: string;
+  table: SyncTable;
+  operation: SyncOperation;
+  entityId: string;
+  payload: Record<string, unknown>;
+  timestamp: string;
+  retryCount: number;
+}
+
+// Extended types with sync metadata
+export interface SyncableExpense extends Expense {
+  _sync?: SyncMetadata;
+  _deleted?: boolean;
+}
+
+export interface SyncableCategory extends Category {
+  _sync?: SyncMetadata;
+  _deleted?: boolean;
+}
+
+// Auth types
+export interface AuthUser {
+  id: string;
+  email: string;
+  emailConfirmedAt?: string;
+  createdAt: string;
+}
+
+export interface AuthState {
+  user: AuthUser | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+}
+
+// Sync state
+export interface SyncState {
+  isSyncing: boolean;
+  lastSyncAt: string | null;
+  pendingCount: number;
+  error: string | null;
+}
